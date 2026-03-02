@@ -8,10 +8,7 @@ import { clerkWebhook } from "./controllers/webhook.js";
 const app = express();
 connectDB();
 
-app.post(
-  "/api/clerk",
-  express.raw({ type: "application/json" }),
-  clerkWebhook
+app.post("/api/clerk",express.raw({ type: "application/json" }),clerkWebhook
 );
 
 app.use(cors());
