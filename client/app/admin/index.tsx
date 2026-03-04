@@ -2,10 +2,12 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ScrollView, Text, View, ActivityIndicator, RefreshControl } from "react-native";
 import { COLORS, getStatusColor } from "@/constants";
-import { dummyAdminStats } from "@/assets/assets";
+import { useAuth } from "@clerk/clerk-expo";
+import api from "@/constants/api";
 
 export default function AdminDashboard() {
     const router = useRouter();
+    const {getToken} =useAuth()
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [stats, setStats] = useState({
@@ -17,10 +19,33 @@ export default function AdminDashboard() {
     });
 
     const fetchStats = async () => {
-        setStats(dummyAdminStats as any);
-        setLoading(false);
-        setRefreshing(false);
-    };
+  try {
+    setLoading(true);
+
+    const token = await getToken();
+
+    if (!token) {
+      throw new Error("Authentication token not found");
+    }
+
+    const { data } = await api.get("/admin/stats", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (data?.success) {
+      setStats(data.data);
+    } else {
+      console.error("API responded with failure:", data?.message);
+    }
+  } catch (error) {
+    console.error("Failed to fetch admin stats:", error.message);
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
 
     useEffect(() => {
         fetchStats();

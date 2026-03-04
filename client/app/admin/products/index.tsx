@@ -3,18 +3,43 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl, Image, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/constants";
-import { dummyProducts } from "@/assets/assets";
+import { useAuth } from "@clerk/clerk-expo";
+import api from "@/constants/api";
+import Toast from "react-native-toast-message";
 
 export default function AdminProducts() {
     const router = useRouter();
+    const { getToken } = useAuth()
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [products, setProducts] = useState([]);
 
     const fetchProducts = async () => {
-        setProducts(dummyProducts as any);
-        setLoading(false);
-        setRefreshing(false);
+        try {
+            setLoading(true);
+
+            const { data } = await api.get("/products", {
+                params: { limit: 999 },
+            });
+
+            if (data?.success) {
+                setProducts(data.data);
+            } else {
+                throw new Error(data?.message || "Failed to fetch products");
+            }
+        } catch (error: any) {
+            console.error("Failed to fetch products:", error);
+
+            Toast.show({
+                type: "error",
+                text1: "Failed to Fetch Products",
+                text2:
+                    error?.response?.data?.message || "Something went wrong",
+            });
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
     useEffect(() => {
@@ -27,7 +52,37 @@ export default function AdminProducts() {
     };
 
     const performDelete = async (id: string) => {
-        setProducts(products.filter((product: any) => product._id !== id) as any);
+        try {
+            const token = await getToken();
+            if (!token) throw new Error("Authentication failed");
+
+            const { data } = await api.delete(`/products/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (data?.success) {
+                Toast.show({
+                    type: "success",
+                    text1: "Success",
+                    text2: "Product deleted",
+                });
+
+                await fetchProducts();
+            } else {
+                throw new Error(data?.message || "Delete failed");
+            }
+        } catch (error: any) {
+            console.error("Delete failed:", error);
+
+            Toast.show({
+                type: "error",
+                text1: "Delete Failed",
+                text2:
+                    error?.response?.data?.message || "Something went wrong",
+            });
+        }
     };
 
     const deleteProduct = async (id: string) => {

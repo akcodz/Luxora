@@ -7,6 +7,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import Header from "@/components/Header";
 import {COLORS} from "@/constants";
 import ProductCard from "@/components/ProductCard";
+import api from "@/constants/api";
 
 const Shop = () => {
     const [products, setProducts] = useState<Product[]>([]);
@@ -17,23 +18,27 @@ const Shop = () => {
 
     const fetchProducts = async (pageNumber = 1) => {
         try {
-            if (pageNumber === 1) {
-                setLoading(true);
-            } else {
-                setLoadingMore(true);
-            }
+            const queryParams = {page: pageNumber, limit: 10,};
 
-            const limit = 10;
-            const start = (pageNumber - 1) * limit;
-            const end = start + limit;
-
-            const newProducts = dummyProducts.slice(start, end);
-
-            setProducts((prev) =>
-                pageNumber === 1 ? newProducts : [...prev, ...newProducts]
+            const { data } = await api.get(
+                "/products",
+                { params: queryParams }
             );
 
-            setHasMore(end<dummyProducts.length);
+            if (!data?.success) {
+                throw new Error("Failed to fetch products");
+            }
+
+            if (pageNumber === 1) {
+                setProducts(data.data);
+            } else {
+                setProducts((prev) => [...prev, ... data.data]);
+            }
+
+            setHasMore(
+                data.pagination?.page < data.pagination?.pages
+            );
+
             setPage(pageNumber);
         } catch (error) {
             console.error("Failed to fetch products:", error);

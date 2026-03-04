@@ -8,6 +8,7 @@ import {CATEGORIES} from "@/constants";
 import CategoryItem from "@/components/CategoryItem";
 import {Product} from "@/constants/types";
 import ProductCard from "@/components/ProductCard";
+import api from "@/constants/api";
 
 const {width} = Dimensions.get("window");
 const Index = () => {
@@ -19,9 +20,20 @@ const Index = () => {
     const categories = [{id:'all',name:'All',icon:"grid"},...CATEGORIES]
 
     const fetchProducts = async () => {
-        setProducts(dummyProducts)
-        setLoading(false);
-    }
+        try {
+            const { data } = await api.get("/products");
+
+            if (!data?.success) {
+                throw new Error(data?.message || "Failed to fetch products");
+            }
+
+            setProducts(data.data);
+        } catch (error: any) {
+            console.error("Error fetching products:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {fetchProducts()}, []);
     return (

@@ -11,6 +11,10 @@ export interface IAddress extends Document {
     isDefault: boolean;
     createdAt: Date;
 }
+export interface IWishlist{
+    user: Types.ObjectId;
+    product: Types.ObjectId;
+}
 
 export interface ICartItem {
     product: Types.ObjectId;

@@ -3,8 +3,11 @@ import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshCon
 import { COLORS, getStatusColor } from "@/constants";
 import { Ionicons } from "@expo/vector-icons";
 import { dummyOrders, dummyUser } from "@/assets/assets";
+import {useAuth} from "@clerk/clerk-expo";
+import api from "@/constants/api";
 
 export default function AdminOrders() {
+    const {getToken} = useAuth();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [orders, setOrders] = useState([]);
@@ -17,12 +20,29 @@ export default function AdminOrders() {
     const STATUSES = ["placed", "processing", "shipped", "delivered", "cancelled"];
 
     const fetchOrders = async () => {
-        setOrders(dummyOrders.map((order: any) => ({
-            ...order,
-            user: dummyUser
-        })) as any);
-        setLoading(false);
-        setRefreshing(false);
+        try {
+            setLoading(true);
+
+            const token = await getToken();
+            const {data} = await api.get("/orders/admin/all", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (data?.success) {
+                setOrders(data.data);
+            }
+        }catch (error: any) {
+            console.error("Failed to fetch orders:", error);
+            Alert.alert(
+                "Error",
+                error?.response?.data?.message || "Failed to load orders"
+            );
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     };
 
     useEffect(() => {
@@ -41,9 +61,39 @@ export default function AdminOrders() {
 
     const updateStatus = async (newStatus: string) => {
         if (!selectedOrder) return;
-        setOrders(orders.map((order: any) => order._id === selectedOrder._id ? { ...order, orderStatus: newStatus } : order) as any);
-        setStatusModalVisible(false);
-        setUpdating(false);
+
+        try {
+            setUpdating(true);
+
+            const token = await getToken();
+            const { data } = await api.put(
+                `/orders/${selectedOrder._id}/status`,
+                { orderStatus: newStatus },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (!data?.success) {
+                throw new Error(data?.message || "Status update failed");
+            }
+
+            Alert.alert("Success", "Order status updated");
+
+            setStatusModalVisible(false);
+            await fetchOrders(); // ensure refresh completes
+        } catch (error: any) {
+            console.error("Failed to update status:", error);
+
+            Alert.alert(
+                "Error",
+                error?.response?.data?.message || "Failed to update status"
+            );
+        } finally {
+            setUpdating(false);
+        }
     };
 
     if (loading && !refreshing) {

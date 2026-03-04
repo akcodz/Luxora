@@ -9,6 +9,7 @@ import {SafeAreaView} from "react-native-safe-area-context";
 import {COLORS} from "@/constants";
 import {Ionicons} from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
+import api from "@/constants/api";
 
 
 const {width} = Dimensions.get("window");
@@ -27,11 +28,20 @@ const ProductDetails = () => {
 
     const fetchProduct = async () => {
         try {
-            setLoading(true);
-            const foundProduct = dummyProducts.find(
-                (product) => product._id === id
-            );
-            setProduct(foundProduct ?? null);
+            const { data } = await api.get(`/products/${id}`);
+
+            if (!data?.success) {
+                throw new Error(data?.message || "Failed to fetch product");
+            }
+
+            setProduct(data.data);
+        } catch (error: any) {
+            Toast.show({
+                type: "error",
+                text1: "Failed to Fetch Product",
+                text2:
+                    error?.response?.data?.message || "Something went wrong",
+            });
         } finally {
             setLoading(false);
         }

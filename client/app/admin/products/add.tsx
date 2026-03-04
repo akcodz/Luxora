@@ -5,9 +5,14 @@ import { COLORS } from "@/constants";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { CATEGORIES } from "@/constants";
+import { useRouter } from "expo-router";
+import { useAuth } from "@clerk/clerk-expo";
+import api from "@/constants/api";
 
 export default function AddProduct() {
 
+    const router = useRouter()
+    const { getToken } = useAuth()
     const [submitting, setSubmitting] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
 
@@ -45,6 +50,58 @@ export default function AddProduct() {
                 text2: 'Please fill in all required fields'
             });
             return;
+        }
+
+        try {
+            setSubmitting(true);
+
+            const token = await getToken();
+            const formData = new FormData();
+
+            // Basic fields
+            const fields = {
+                name: name?.trim(),
+                description: description?.trim() || "N/A",
+                price: String(price),
+                isFeatured: String(isFeatured),
+                sizes,
+                stock: String(stock),
+                category,
+            };
+
+            Object.entries(fields).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    formData.append(key, value);
+                }
+            });
+
+            // Images
+            for (const [i, uri] of images.entries()) {
+                const filename = `image-${i}.jpg`
+                formData.append('images', { uri, name: filename, type: 'image/jpeg' } as any)
+            }
+
+            const { data } = await api.post("/products", formData, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+            });
+
+            if (!data?.success) {
+                throw new Error(data?.message || "Product creation failed");
+            }
+
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Product created'
+            })
+
+            router.replace("/admin/products")
+        } catch (error: any) {
+            console.error("Product submission failed:", error.message);
+        } finally {
+            setSubmitting(false);
         }
     };
 

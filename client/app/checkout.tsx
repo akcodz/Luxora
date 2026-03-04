@@ -9,9 +9,12 @@ import {ActivityIndicator, ScrollView, Text, TouchableOpacity, View} from "react
 import {COLORS} from "@/constants";
 import Header from "@/components/Header";
 import {Ionicons} from "@expo/vector-icons";
+import {useAuth} from "@clerk/clerk-expo";
+import api from "@/constants/api";
 
 const Checkout = () => {
-    const { cartTotal } = useCart();
+    const {getToken}=useAuth()
+    const { cartTotal,clearCart } = useCart();
     const router = useRouter();
 
     const [loading, setLoading] = useState(false);
@@ -25,15 +28,30 @@ const Checkout = () => {
 
     const fetchAddress = async () => {
         try {
-            const addrList = dummyAddress;
+            const token = await getToken();
+
+            const { data } = await api.get('/addresses', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            const addrList = data?.data || [];
 
             if (addrList.length > 0) {
-                // Prefer default address, else first
                 const defaultAddress =
-                    addrList.find((a) => a.isDefault) ?? addrList[0];
+                    addrList.find((a: Address) => a.isDefault) || addrList[0];
 
-                setSelectedAddress(defaultAddress as Address);
+                setSelectedAddress(defaultAddress);
             }
+        } catch (error) {
+            console.error('Error fetching checkout data:', error);
+
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Failed to load checkout information',
+            });
         } finally {
             setPageLoading(false);
         }
@@ -57,11 +75,53 @@ const Checkout = () => {
             });
             return;
         }
-        router.replace('/orders')
+        try {
+            setLoading(true);
+
+            const payload = {
+                shippingAddress: selectedAddress,
+                notes: 'Placed via App',
+                paymentMethod: 'cash',
+            };
+
+            const token = await getToken();
+
+            const { data } = await api.post('/orders', payload, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (data?.success) {
+                await clearCart();
+
+                Toast.show({
+                    type: 'success',
+                    text1: 'Order Placed',
+                    text2: 'Your order has been placed successfully!',
+                });
+
+                router.replace('/orders');
+            }
+        } catch (error: any) {
+            console.log('Order error:', error);
+
+            Toast.show({
+                type: 'error',
+                text1: 'Failed to Place Order',
+                text2:
+                    error?.response?.data?.message ||
+                    'Something went wrong. Please try again.',
+            });
+        } finally {
+            setLoading(false);
+        }
+
+
     }
 
 
-        useEffect(() => {
+    useEffect(() => {
         fetchAddress();
     }, []);
 
